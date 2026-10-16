@@ -2574,6 +2574,18 @@ static FORCEINLINE struct _TEB * WINAPI NtCurrentTeb(void)
 {
     return (struct _TEB *)__readfsdword( 0x18 );
 }
+#elif defined(__arm64ec__) && defined(__clang__)
+static FORCEINLINE struct _TEB * WINAPI NtCurrentTeb(void)
+{
+    struct _TEB *teb;
+    /* Materialize the value in an ordinary register. A register variable lets
+     * the compiler store x18 straight into a unix-call parameter block. On iOS
+     * x18 can be cleared by preemption between the loader's TEB refresh and
+     * that store, silently passing NULL. The explicit MOV is patched to load
+     * the TEB into its destination from pthread TSD without using x18. */
+    __asm__ __volatile__("mov %0, x18" : "=r" (teb));
+    return teb;
+}
 #elif (defined(__aarch64__) || defined(__arm64ec__)) && defined(__GNUC__)
 register struct _TEB *__wine_current_teb __asm__("x18");
 static FORCEINLINE struct _TEB * WINAPI NtCurrentTeb(void)
